@@ -2,6 +2,9 @@ var fs = require('fs');
 const electron = require('electron');
 var screenElectron = electron.screen;
 
+
+
+
 // If absolute URL from the remote server is provided, configure the CORS
 // header on that server.
 // var url = '//cdn.mozilla.net/pdfjs/tracemonkey.pdf';
@@ -12,75 +15,59 @@ var data = new Uint8Array(fs.readFileSync('files/litweb.pdf'));
 PDFJS.workerSrc = 'pdfjs/pdf.worker.min.js';
 
 var pdfDoc = null,
+	layout = 2, //1 or 2 page viewing
 	pageNum = 1,
 	pageRendering = false,
 	pageNumPending = null,
 	scale = 5,
-	canvas1 = document.getElementById('canvas-1'),
-	canvas2 = document.getElementById('canvas-2'),
-	ctx1 = canvas1.getContext('2d');
-	ctx2 = canvas2.getContext('2d');
+	canvases = 10,
+	canvasArr = [],
+	context = [],
+	ms = screenElectron.getPrimaryDisplay().bounds;
 
-	var mainScreen = screenElectron.getPrimaryDisplay();
-	log(mainScreen.workAreaSize.width+ 'x' +mainScreen.workAreaSize.height); //1620x1080
-
-	//canvas.width<=810
-	//canvas.height<=1080
+document.getElementById('canvases').style.height = ms.height + 'px';
+log(ms);
+for (var i = 0; i < canvases; i++) {
+	log(i);
+	canvasArr[i] = document.createElement('canvas');
+	canvasArr[i].id = 'c'+i;
+	document.getElementById('canvas-wrap-1').appendChild(canvasArr[i]);
+	context[i] = canvasArr[i].getContext('2d');
+	i++;
+	log(i);
+	canvasArr[i] = document.createElement('canvas');
+	canvasArr[i].id = 'c'+i;
+	document.getElementById('canvas-wrap-2').appendChild(canvasArr[i]);
+	context[i] = canvasArr[i].getContext('2d');
+}
 
 /**
  * Get page info from document, resize canvas accordingly, and render page.
  * @param num Page number.
  */
 function renderPage(num) {
-	pageRendering = true;
-	// Using promise to fetch the page
-	pdfDoc.getPage(num).then(function(page) {
-		var viewport = page.getViewport(scale);
-		log(viewport);
-		canvas1.height = viewport.height;
-		canvas1.width = viewport.width;
-		if(canvas1.height/(1.0*canvas1.width)>=1.333){
-			//constrain by height
-			canvas1.style.height = 1080 + 'px';
-		}else{
-			canvas1.style.width = 810 + 'px';
-		}
+	var index = (num - 1) % canvases;
+	var canvas = canvasArr[index];
+	var ctx = context[index];
+	if (num <= pdfDoc.numPages) {
+		pageRendering = true;
+		// Using promise to fetch the page
 
-
-		// Render PDF page into canvas context
-		var renderContext = {
-			canvasContext: ctx1,
-			viewport: viewport
-		};
-		var renderTask = page.render(renderContext);
-
-		// Wait for rendering to finish
-		renderTask.promise.then(function() {
-			pageRendering = false;
-			if (pageNumPending !== null) {
-				// New page rendering is pending
-				renderPage(pageNumPending);
-				pageNumPending = null;
-			}
-		});
-	});
-	if(num < pdfDoc.numPages){
-		pdfDoc.getPage(num+1).then(function(page) {
+		pdfDoc.getPage(num).then(function(page) {
 			var viewport = page.getViewport(scale);
 			log(viewport);
-			canvas2.height = viewport.height;
-			canvas2.width = viewport.width;
-			if(canvas2.height/(1.0*canvas2.width)>=1.333){
+			canvas.height = viewport.height;
+			canvas.width = viewport.width;
+			if(canvas.height/(1.0*canvas.width)>=ms.height/(1.0*ms.width/2.0)) {
 				//constrain by height
-				canvas2.style.height = 1080 + 'px';
+				canvas.style.height = ms.height + 'px';
 			}else{
-				canvas2.style.width = 810 + 'px';
+				canvas.style.width = ms.width/2 + 'px';
 			}
-
 
 			// Render PDF page into canvas context
 			var renderContext = {
-				canvasContext: ctx2,
+				canvasContext: ctx,
 				viewport: viewport
 			};
 			var renderTask = page.render(renderContext);
@@ -95,10 +82,8 @@ function renderPage(num) {
 				}
 			});
 		});
-		document.getElementById('page_num').textContent = num + '-' + (num+1);
-	}else{
-		ctx2.clearRect(0, 0, canvas2.width, canvas2.height);
-		document.getElementById('page_num').textContent = num;
+	} else {
+		ctx.clearRect(0, 0, canvasArr[index-1].width, canvasArr[index-1].height);
 	}
 	// Update page counters
 }
@@ -109,45 +94,77 @@ function renderPage(num) {
  */
 function queueRenderPage(num) {
   if (pageRendering) {
-	pageNumPending = num;
+    pageNumPending = num;
   } else {
-	renderPage(num);
+    for (var i = 0; i < canvases; i++)
+      renderPage(num + i);
   }
 }
 
 /**
- * Displays previous page.
+ * renders previous pages.
  */
-function onPrevPage() {
+function renderPrev(num) {
   if (pageNum <= 1) {
 	return;
   }
-  pageNum -= 2;
+  pageNum -= num;
   queueRenderPage(pageNum);
 }
-document.getElementById('prev').addEventListener('pointerdown', onPrevPage);
-
 /**
- * Displays next page.
+ * renders next pages.
  */
-function onNextPage() {
-  if (pageNum >= pdfDoc.numPages) {
+function renderNext(num) {
+  if (pageNum + num >= pdfDoc.numPages) {
 	return;
   }
-  pageNum +=2;
+  pageNum +=num;
   queueRenderPage(pageNum);
 }
-document.getElementById('next').addEventListener('pointerdown', onNextPage);
+
+var page = 0;
+function hideShowPages(){
+	log(page);
+	for (var i = 0; i < canvasArr.length; i++) {
+		if(i >= page && i <= page+layout-1){
+			canvasArr[i].hidden = false;
+		}else{
+			canvasArr[i].hidden = true;
+		}
+	}
+	document.getElementById('page_num').textContent = (page+1) + (layout>1 && page+layout<=pdfDoc.numPages?'-' + (page+layout):'');
+}
+function prevPage(){
+	if(page>0){
+		page-=layout;
+		hideShowPages();
+	}else{
+		log("nope");
+	}
+}
+function nextPage(){
+	if(page+layout<pdfDoc.numPages){
+		page+=layout;
+		hideShowPages();
+	}else{
+		log("nope");
+	}
+}
+document.getElementById('prev').addEventListener('pointerdown', prevPage);
+document.getElementById('next').addEventListener('pointerdown', nextPage);
 
 /**
  * Asynchronously downloads PDF.
  */
 PDFJS.getDocument(data).then(function(pdfDoc_) {
   pdfDoc = pdfDoc_;
+  hideShowPages();
   document.getElementById('page_count').textContent = pdfDoc.numPages;
 
   // Initial/first page rendering
-  renderPage(pageNum);
+  for (var i = 0; i < 10; i++) {
+    renderPage(1 + i);
+  }
 });
 
 

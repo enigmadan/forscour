@@ -7,24 +7,6 @@ body {
 body {
 	font-family: -apple-system, 'Helvetica Neue', Helvetica, sans-serif;
 }
-
-header {
-	position: absolute;
-	width: 500px;
-	height: 250px;
-	top: 50%;
-	left: 50%;
-	margin-top: -125px;
-	margin-left: -250px;
-	text-align: center;
-}
-
-header h1 {
-	font-size: 60px;
-	font-weight: 100;
-	margin: 0;
-	padding: 0;
-}
 #menu {
 	position:absolute;
 	top:0;
@@ -44,14 +26,11 @@ header h1 {
 #next {
 	right:0;
 }
-#canvas-1, #canvas-2 {
+#canvas-wrap-1, #canvas-wrap-2 {
 	flex: none;
-	box-sizing: border-box;
-	border:1px solid black;
 }
 #canvases{
-	height:1080px;
-	width:1620px;
+	width:100%;
 	background:rgba(100,100,100,.2);
 	display: flex;
 	align-items: center;
