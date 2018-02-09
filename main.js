@@ -1,14 +1,7 @@
-var fs = require('fs');
+const fs = require('fs');
+const path = require('path');
 const electron = require('electron');
 var screenElectron = electron.screen;
-
-
-
-
-// If absolute URL from the remote server is provided, configure the CORS
-// header on that server.
-// var url = '//cdn.mozilla.net/pdfjs/tracemonkey.pdf';
-var data = new Uint8Array(fs.readFileSync('files/litweb.pdf'));
 
 
 // The workerSrc property shall be specified.
@@ -16,25 +9,23 @@ PDFJS.workerSrc = 'pdfjs/pdf.worker.min.js';
 
 var pdfDoc = null,
 	layout = 2, //1 or 2 page viewing
-	pageNum = 1,
+	canvases = 30,
+	canvasArr = [],
+	context = [],
+	renderedMin = 0,
+	renderedMax = renderedMin+canvases-1,
 	pageRendering = false,
 	pageNumPending = null,
 	scale = 5,
-	canvases = 10,
-	canvasArr = [],
-	context = [],
 	ms = screenElectron.getPrimaryDisplay().bounds;
 
 document.getElementById('canvases').style.height = ms.height + 'px';
-log(ms);
 for (var i = 0; i < canvases; i++) {
-	log(i);
 	canvasArr[i] = document.createElement('canvas');
 	canvasArr[i].id = 'c'+i;
 	document.getElementById('canvas-wrap-1').appendChild(canvasArr[i]);
 	context[i] = canvasArr[i].getContext('2d');
 	i++;
-	log(i);
 	canvasArr[i] = document.createElement('canvas');
 	canvasArr[i].id = 'c'+i;
 	document.getElementById('canvas-wrap-2').appendChild(canvasArr[i]);
@@ -48,6 +39,7 @@ for (var i = 0; i < canvases; i++) {
 function renderPage(num) {
 	var index = (num - 1) % canvases;
 	var canvas = canvasArr[index];
+	canvas.title = '' + num;
 	var ctx = context[index];
 	if (num <= pdfDoc.numPages) {
 		pageRendering = true;
@@ -55,7 +47,6 @@ function renderPage(num) {
 
 		pdfDoc.getPage(num).then(function(page) {
 			var viewport = page.getViewport(scale);
-			log(viewport);
 			canvas.height = viewport.height;
 			canvas.width = viewport.width;
 			if(canvas.height/(1.0*canvas.width)>=ms.height/(1.0*ms.width/2.0)) {
@@ -77,13 +68,13 @@ function renderPage(num) {
 				pageRendering = false;
 				if (pageNumPending !== null) {
 					// New page rendering is pending
-					renderPage(pageNumPending);
+					renderPage(pageNumPending[0],pageNumPending[1]);
 					pageNumPending = null;
 				}
 			});
 		});
 	} else {
-		ctx.clearRect(0, 0, canvasArr[index-1].width, canvasArr[index-1].height);
+		ctx.clearRect(0, 0, ms.width/2, ms.height);
 	}
 	// Update page counters
 }
@@ -92,41 +83,54 @@ function renderPage(num) {
  * If another page rendering in progress, waits until the rendering is
  * finised. Otherwise, executes rendering immediately.
  */
-function queueRenderPage(num) {
-  if (pageRendering) {
-    pageNumPending = num;
-  } else {
-    for (var i = 0; i < canvases; i++)
-      renderPage(num + i);
-  }
+function queueRenderPage(newN, oldN) {
+	if (pageRendering) {
+		log((newN-oldN) + ' pending');
+		pageNumPending = (newN,oldN);
+	} else {
+		var temp = newN-oldN; //-if min; +if max
+		log(temp);
+		for (var i = (temp<0?temp:0); i < (temp<0?0:temp); i++) { //if temp is negative, i will be negative. if positive, positive.
+			log(oldN + i + ' rendering');
+			renderPage(oldN + i);
+		}
+	}
 }
 
 /**
  * renders previous pages.
  */
 function renderPrev(num) {
-  if (pageNum <= 1) {
-	return;
-  }
-  pageNum -= num;
-  queueRenderPage(pageNum);
+	if (renderedMin < 1) {
+		return;
+	}
+	var prevMin = renderedMin;
+	var temp = renderedMin - num < 0 ? renderedMin : num;
+	renderedMin -= temp;
+	renderedMax -= temp;
+	log(renderedMin + '-' + renderedMax + ' rendered');
+	queueRenderPage(renderedMin,prevMin);
 }
 /**
  * renders next pages.
  */
 function renderNext(num) {
-  if (pageNum + num >= pdfDoc.numPages) {
-	return;
-  }
-  pageNum +=num;
-  queueRenderPage(pageNum);
+	if (renderedMax >= pdfDoc.numPages) {
+		return;
+	}
+	var prevMax = renderedMax;
+	var temp = renderedMax + num > pdfDoc.numPages ? pdfDoc.numPages + 1 - renderedMax : num;
+	renderedMax += temp;
+	renderedMin += temp;
+	log(renderedMin + '-' + renderedMax + ' rendered');
+	queueRenderPage(renderedMax, prevMax);
 }
 
 var page = 0;
 function hideShowPages(){
 	log(page);
 	for (var i = 0; i < canvasArr.length; i++) {
-		if(i >= page && i <= page+layout-1){
+		if(i >= page%canvases && i <= (page%canvases)+layout-1 && page < pdfDoc.numPages){
 			canvasArr[i].hidden = false;
 		}else{
 			canvasArr[i].hidden = true;
@@ -138,6 +142,10 @@ function prevPage(){
 	if(page>0){
 		page-=layout;
 		hideShowPages();
+		log(page+'-'+renderedMin+'='+(page-renderedMin)+'<='+(canvases/3));
+		if(page-renderedMin<=canvases/3){
+			renderPrev(canvases/3);
+		}
 	}else{
 		log("nope");
 	}
@@ -146,6 +154,11 @@ function nextPage(){
 	if(page+layout<pdfDoc.numPages){
 		page+=layout;
 		hideShowPages();
+		log(renderedMax+'-'+page+'='+(renderedMax-page)+'<='+(canvases/3));
+		if(renderedMax-page<=canvases/3){
+			log("This happened.");
+			renderNext(canvases/3);
+		}
 	}else{
 		log("nope");
 	}
@@ -154,19 +167,49 @@ document.getElementById('prev').addEventListener('pointerdown', prevPage);
 document.getElementById('next').addEventListener('pointerdown', nextPage);
 
 /**
+ * Creates directory listing given directory
+ */
+const walkSync = (d) => fs.statSync(d).isDirectory() ? fs.readdirSync(d).map(f => walkSync(path.join(d, f))) : d;
+var files = walkSync('files/');
+var fileEx = document.getElementById('explorer');
+fileEx.innerHTML = "";
+for (var i = 0; i < files.length; i++) {
+	log(files[i]);
+	var file = files[i].split('\\')[1];
+	var a = document.createElement('a');
+	var linkText = document.createTextNode(file);
+	a.appendChild(linkText);
+	a.title = file;
+	a.href = 'javascript:loadPdf("'+file+'")';
+	fileEx.appendChild(a);
+}
+// loadPdf('36q.pdf');
+
+/**
  * Asynchronously downloads PDF.
  */
-PDFJS.getDocument(data).then(function(pdfDoc_) {
-  pdfDoc = pdfDoc_;
-  hideShowPages();
-  document.getElementById('page_count').textContent = pdfDoc.numPages;
+function loadPdf(pdf){
+	log('Loading '+ pdf);
+	// If absolute URL from the remote server is provided, configure the CORS
+	// header on that server.
+	// var url = '//cdn.mozilla.net/pdfjs/tracemonkey.pdf';
+	var data = new Uint8Array(fs.readFileSync('files/'+pdf));
 
-  // Initial/first page rendering
-  for (var i = 0; i < 10; i++) {
-    renderPage(1 + i);
-  }
-});
+	PDFJS.getDocument(data).then(function(pdfDoc_) {
+		pdfDoc = pdfDoc_;
+		page = 0;
+		renderedMin = 0;
+		renderedMax = renderedMin+canvases-1;
 
+		hideShowPages();
+		document.getElementById('page_count').textContent = pdfDoc.numPages;
+
+		// Initial/first page rendering
+		for (var i = 0; i < canvases; i++) {
+			renderPage(1 + i);
+		}
+	});
+}
 
 /******************************************
 HELPERS

@@ -1,19 +1,13 @@
 'use strict';
 const electron = require('electron');
 require('pdfjs-dist');
-var fs = require('fs');
-
-var data = new Uint8Array(fs.readFileSync('files/litweb.pdf'));
-PDFJS.getDocument(data).then(function (pdfDocument) {
-  console.log('Number of pages: ' + pdfDocument.numPages);
-});
-
-
+const fs = require('fs');
 
 const app = electron.app;
 
 // adds debug features like hotkeys for triggering dev tools and reload
 require('electron-debug')();
+
 
 // prevent window being garbage collected
 let mainWindow;
