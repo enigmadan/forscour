@@ -1,6 +1,6 @@
 # forscour
 
-> My priceless app
+> For scouring, organzing, editing, and exporting PDFs
 
 
 ## Dev
@@ -26,4 +26,4 @@ Builds the app for macOS, Linux, and Windows, using [electron-packager](https://
 
 ## License
 
-MIT © [](http://enigmadan.com)
+GNU General Public License v3.0 ©
