@@ -2,6 +2,12 @@ html,
 body {
 	padding: 0;
 	margin: 0;
+	width:100%;
+	height:100%;
+}
+#app {
+	width:100%;
+	height:100%;
 }
 
 body {
@@ -14,7 +20,7 @@ body {
 	height:20px;
 	text-align: center;
 	background: #aaa;
-	z-index:2;
+	z-index:3;
 }
 #prev, #next {
 	position:absolute;
@@ -27,16 +33,31 @@ body {
 	right:0;
 }
 #canvas-wrap-1, #canvas-wrap-2 {
-	flex: none;
+	position:relative;
+	background: rgba(0, 0, 0, .3);
+	width: 100%;
+	height: 100%;
+	border: black solid 1px;
 }
+#canvas-wrap-1 canvas {
+	position:absolute;
+	right:0px;
+}
+
+#canvas-wrap-2 canvas {
+	position:absolute;
+	left:0px;
+}
+
 #canvases{
-	width:100%;
-	background:rgba(100,100,100,.2);
+	width: 100%;
+	height: 100%;
+	background: rgba(100, 100, 100, .2);
 	display: flex;
 	align-items: center;
+	align-content: center;
 	justify-content: center;
-    width: 1600px;
-    overflow: hidden;
+	overflow: hidden;
 }
 #explorer{
 	padding:10px;

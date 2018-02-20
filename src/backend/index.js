@@ -25,7 +25,7 @@ function createMainWindow() {
 		fullscreen: true
 	});
 
-	win.loadURL(`file://${__dirname}/index.html`);
+	win.loadURL(`file://${__dirname}/../frontend/index.html`);
 	win.setMenu(null);
 	win.on('closed', onClosed);
 

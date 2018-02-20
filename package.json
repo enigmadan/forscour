@@ -2,7 +2,7 @@
   "name": "forscour",
   "productName": "Forscour",
   "version": "0.0.0",
-  "description": "My priceless app",
+  "description": "App for scouring PDFs.",
   "license": "MIT",
   "repository": "enigmadan/forscour",
   "author": {
@@ -15,10 +15,11 @@
     "start": "electron .",
     "build": "electron-packager . --out=dist --asar --overwrite --all"
   },
+  "main" : "src/backend/index.js",
   "files": [
-    "index.js",
-    "index.html",
-    "index.css"
+    "src/backend/back.js",
+    "src/frontend/index.html",
+    "src/frontend/index.css"
   ],
   "keywords": [
     "electron-app",
@@ -26,7 +27,9 @@
   ],
   "dependencies": {
     "electron-debug": "^1.0.0",
-    "pdfjs-dist": "^2.0.312"
+    "pdfjs-dist": "^2.0.312",
+    "sqlite3": "^3.1.13",
+    "webpack": "^3.11.0"
   },
   "devDependencies": {
     "devtron": "^1.1.0",
