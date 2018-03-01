@@ -8,6 +8,29 @@ HELPERS
 ******************************************/
 var log = console.log.bind(window.console);
 
+/* From Modernizr */
+function whichAnimationEvent(){
+    var t;
+    var el = document.createElement('fakeelement');
+    var animations = {
+      'animation':'animationend',
+    }
+
+    for(t in animations){
+        if( el.style[t] !== undefined ){
+            return animations[t];
+        }
+    }
+}
+/* Listen for a animation! */
+var animationEvent = whichAnimationEvent();
+
+function mod(n, m) {
+	return ((n % m) + m) % m;
+}
+
+/******************************************/
+
 
 // The workerSrc property shall be specified.
 PDFJS.workerSrc = '../pdfjs/pdf.worker.min.js';
@@ -21,7 +44,7 @@ var pdfDoc = null,
 	renderedMax = renderedMin+canvases-1,
 	pageRendering = false,
 	pageNumPending = null,
-	scale = 5,
+	scale = 2,
 	ms = screenElectron.getPrimaryDisplay().bounds;
 
 document.getElementById('canvases').style.height = ms.height + 'px';
@@ -42,7 +65,9 @@ for (var i = 0; i < canvases; i++) {
  * @param num Page number.
  */
 function renderPage(num) {
-	var index = (num - 1) % canvases;
+	var index = mod(num - 1, canvases);
+	log("index");
+	log(index,num);
 	var canvas = canvasArr[index];
 	canvas.title = '' + num;
 	var ctx = context[index];
@@ -73,7 +98,7 @@ function renderPage(num) {
 				pageRendering = false;
 				if (pageNumPending !== null) {
 					// New page rendering is pending
-					renderPage(pageNumPending[0],pageNumPending[1]);
+					queueRenderPage(pageNumPending[0],pageNumPending[1]);
 					pageNumPending = null;
 				}
 			});
@@ -146,40 +171,35 @@ function hideShowPages(){
 function prevPage(){
 	log('prev');
 	if(page>0){
+		//p0 current L
+		//p1 current R
+		//p2 new L
+		//p3 new R
 		var p0 = canvasArr[page%canvases];
 		var p1 = canvasArr[(page+1)%canvases];
 		page-=layout;
 		var p2 = canvasArr[page%canvases];
 		var p3 = canvasArr[(page+1)%canvases];
-		var pos = 0;
-		var width = (parseFloat(p0.style.height)/p0.height)*p0.width;
-		var steps = 5;
-		p3.style.transform = 'translateX(' + (-width*2) + 'px)';
-		p3.style.clipPath = 'inset(0 ' + (pos*(100/steps)) +'% 0 0)';
-		p2.hidden = false;
-		p3.hidden = false;
+
 		p0.style.zIndex = 1;
 		p1.style.zIndex = 1;
 		p3.style.zIndex = 2;
 		p2.style.zIndex = 0;
-		var id = setInterval(frame, 1);
-		function frame() {
-			if (pos >= steps) {
-				clearInterval(id);
-				p3.style.transform = 'unset';
-				p3.style.clipPath = 'unset';
-				p0.style.clipPath = 'unset';
-				p0.hidden = true;
+		p2.hidden = false;
+
+		p0.classList.add("prevEven");
+		p0.addEventListener(animationEvent, function() {
+			p0.removeEventListener(animationEvent,arguments.callee);
+			p0.hidden = true;
+			p0.classList.remove("prevEven");
+			p3.classList.add("prevOdd");
+			p3.hidden = false;
+			p3.addEventListener(animationEvent, function() {
+				p3.removeEventListener(animationEvent,arguments.callee);
 				p1.hidden = true;
-			} else {
-				p3.style.transform = 'translateX(' + (-width*2+pos*(width*2.0/steps)) + 'px)';
-				p0.style.clipPath = 'inset(0 0 0 ' + (pos*100.0/steps) +'%)';
-				p3.style.clipPath = 'inset(0 0 0 ' + (100-pos*100.0/steps) +'%)';
-				pos++;
-			}
-		}
-		// hideShowPages();
-		// log(page+'-'+renderedMin+'='+(page-renderedMin)+'<='+(canvases/3));
+				p3.classList.remove("prevOdd");
+			});
+		});
 		if(page-renderedMin<=canvases/3){
 			renderPrev(canvases/3);
 		}
@@ -195,36 +215,27 @@ function nextPage(){
 		page+=layout;
 		var p2 = canvasArr[page%canvases];
 		var p3 = canvasArr[(page+1)%canvases];
-		var pos = 0;
-		var width = (parseFloat(p0.style.height)/p0.height)*p0.width;
 
-		var steps = 5;
-		p2.style.transform = 'translateX(' + (width*2-pos*(width*2.0/steps)) + 'px)';
-		p2.style.clipPath = 'inset(0 ' + (pos*(100/steps)) +'% 0 0)';
-		p2.hidden = false;
-		p3.hidden = false;
 		p0.style.zIndex = 1;
 		p1.style.zIndex = 1;
 		p2.style.zIndex = 2;
 		p3.style.zIndex = 0;
-		var id = setInterval(frame, 1);
-		function frame() {
-			if (pos >= steps) {
-				clearInterval(id);
-				p2.style.transform = 'unset';
-				p2.style.clipPath = 'unset';
-				p1.style.clipPath = 'unset';
+		p3.hidden = false;
+
+		p1.classList.add("nextOdd");
+		p1.addEventListener(animationEvent, function() {
+			p1.removeEventListener(animationEvent,arguments.callee);
+			p1.hidden = true;
+			p1.classList.remove("nextOdd");
+			p2.classList.add("nextEven");
+			p2.hidden = false;
+			p2.addEventListener(animationEvent, function() {
+				p2.removeEventListener(animationEvent,arguments.callee);
 				p0.hidden = true;
-				p1.hidden = true;
-			} else {
-				p2.style.transform = 'translateX(' + (width*2-pos*(width*2.0/steps)) + 'px)';
-				p1.style.clipPath = 'inset(0 ' + (pos*100.0/steps) +'% 0 0)';
-				p2.style.clipPath = 'inset(0 ' + (100-pos*100.0/steps) +'% 0 0)';
-				pos++;
-			}
-		}
-		// hideShowPages();
-		// log(renderedMax+'-'+page+'='+(renderedMax-page)+'<='+(canvases/3));
+				p2.classList.remove("nextEven");
+			});
+		});
+
 		if(renderedMax-page<=canvases/3){
 			// log("This happened.");
 			renderNext(canvases/3);
@@ -233,14 +244,6 @@ function nextPage(){
 		// log("nope");
 	}
 }
-
-// document.getElementById('prev').addEventListener('pointerdown', prevPage);
-// document.getElementById('next').addEventListener('pointerdown', nextPage);
-
-
-// touch.on("hammer.input", function(ev) {
-//    log(ev.pointers);
-// });
 
 /**
  * Creates directory listing given directory
@@ -270,7 +273,6 @@ function setupNav(){
 	document.onkeydown = function(e) {
 		if(navEnabled){
 			e = e || window.event;
-			log(e.key);
 			switch(e.key) {
 				case 'ArrowLeft':
 					prevPage();
@@ -306,7 +308,7 @@ function setupNav(){
 				fileEx.hidden = false;
 			}
 		}
-		log(ev.target);
+		// log(ev.target);
 	});
 	touchL.on("tap", function(ev) {
 		if(ev.pointerType=='pen'){
