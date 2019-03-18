@@ -15,7 +15,7 @@
     "start": "electron .",
     "build": "electron-packager . --out=dist --asar --overwrite --all"
   },
-  "main" : "src/backend/index.js",
+  "main": "src/backend/index.js",
   "files": [
     "src/backend/back.js",
     "src/frontend/index.html",
@@ -27,15 +27,15 @@
   ],
   "dependencies": {
     "electron-debug": "^1.0.0",
-    "pdfjs-dist": "^2.0.312",
-    "sqlite3": "^3.1.13",
-    "webpack": "^3.11.0"
+    "fuse.js": "^3.4.4",
+    "pdfjs-dist": "^2.0.943",
+    "webpack": "^3.12.0"
   },
   "devDependencies": {
     "devtron": "^1.1.0",
-    "electron-packager": "^8.0.0",
-    "electron": "^1.3.3",
-    "xo": "^0.16.0"
+    "electron": "^1.8.8",
+    "electron-packager": "^13.1.1",
+    "xo": "^0.24.0"
   },
   "xo": {
     "esnext": true,
