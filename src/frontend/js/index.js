@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const electron = require('electron');
+const Fuse = require('fuse.js');
+const {ipcRenderer} = require('electron')
 var screenElectron = electron.screen;
 
 /******************************************
@@ -29,9 +31,90 @@ function mod(n, m) {
 	return ((n % m) + m) % m;
 }
 
+function parentContains(parent, child) {
+     var node = child.parentNode;
+     while (node != null) {
+         if (node == parent) {
+             return true;
+         }
+         node = node.parentNode;
+     }
+     return false;}
 /******************************************/
 
+//request files
+ipcRenderer.send('request-init', null);
+//initialize frontend
+ipcRenderer.on('send-init', function(event, data) {
+	log(data);
+	if(data && data.pdf){
+		setupFiles(data.pdf);
+	}else{
+		showInstructions();
+	}
+	setupNav();
+	setupPdf();
+});
+var fuse = null;
+function setupFiles(values){
+	log(values);
+	var options = {
+		keys: ['name', 'attributes']
+	};
+	fuse = new Fuse(values, options)
+	setupFilesHelper(fuse.list);
+	var fileSearch = document.getElementById("file_search");
+	fileSearch.onkeyup = function(e){
+		var searched = fuse.search(e.target.value);
+		searched = searched.length>0?searched:fuse.list;
+		log('searched',searched)
+		setupFilesHelper(searched);
+	}
+}
 
+function setupFilesHelper(fList){
+	var fileList = document.getElementById("files_list");
+	var html = '';
+	log()
+	for (var i = 0; i < fList.length; i++) {
+		html += '<li><a onclick="loadPdf(\''+ fList[i].src.replace(/\\/g,String.fromCharCode(92,92)) +'\')">'+ fList[i].name +'</a></li>'
+		log(fList[i]);
+	}
+	fileList.innerHTML = html;
+}
+
+ipcRenderer.on('send-db', function(event, data) {
+	log(JSON.parse(data));
+});
+
+function setupPdf(){
+	var filePicker = document.getElementById("file");
+	filePicker.onchange = function(e){
+	    if(e.target.files.length > 0){
+	        // File uploaded
+	        addPdf(e.target.files);
+	    }
+	}
+}
+function addPdf(podf = null){
+	if(podf){
+		var obj = [];
+		for (var i = 0; i < podf.length; i++) {
+			obj[i] = {'name':podf[i].name, 'path':podf[i].path, 'length':null};
+			log(obj[i]);
+		}
+		log(JSON.stringify(obj));
+		ipcRenderer.send('add-files',obj);
+	}else{
+		document.getElementById("file").click();
+	}
+}
+function showInstructions(){
+	var instr = document.createElement('div');
+	instr.innerHTML = '<h1>Use instructions:</h1><br>' +
+					  'None as of yet.';
+	document.getElementById('canvas-wrap-1').appendChild(instr);
+}
 // The workerSrc property shall be specified.
 PDFJS.workerSrc = '../pdfjs/pdf.worker.min.js';
 
@@ -171,10 +254,6 @@ function hideShowPages(){
 function prevPage(){
 	log('prev');
 	if(page>0){
-		//p0 current L
-		//p1 current R
-		//p2 new L
-		//p3 new R
 		var p0 = canvasArr[page%canvases];
 		var p1 = canvasArr[(page+1)%canvases];
 		page-=layout;
@@ -203,8 +282,6 @@ function prevPage(){
 		if(page-renderedMin<=canvases/3){
 			renderPrev(canvases/3);
 		}
-	}else{
-		// log("nope");
 	}
 }
 function nextPage(){
@@ -240,33 +317,70 @@ function nextPage(){
 			// log("This happened.");
 			renderNext(canvases/3);
 		}
-	}else{
-		// log("nope");
 	}
 }
 
 /**
  * Creates directory listing given directory
  */
-function setupMenu(){
-	const walkSync = (d) => fs.statSync(d).isDirectory() ? fs.readdirSync(d).map(f => walkSync(path.join(d, f))) : d;
-	var files = walkSync('files/');
-	fileEx = document.getElementById('explorer');
-	fileEx.innerHTML = "";
-	for (var i = 0; i < files.length; i++) {
-		log(files[i]);
-		var file = files[i].split('\\')[1];
-		var a = document.createElement('a');
-		var linkText = document.createTextNode(file);
-		a.appendChild(linkText);
-		a.title = file;
-		a.href = 'javascript:loadPdf("'+file+'")';
-		fileEx.appendChild(a);
+function setupMenus(){
+	// log(ipcRenderer.sendSync('synchronous-message', 'ping')); // prints "pong"
+	// const walkSync = (d) => fs.statSync(d).isDirectory() ? fs.readdirSync(d).map(f => walkSync(path.join(d, f))) : d;
+	// var files = walkSync('files/');
+	// fileEx = document.getElementById('explorer');
+	// fileEx.innerHTML = "";
+
+	// for (var i = 0; i < files.length; i++) {
+	// 	log(files[i]);
+	// 	var file = files[i].split('\\')[1];
+	// 	var a = document.createElement('a');
+	// 	var linkText = document.createTextNode(file);
+	// 	a.appendChild(linkText);
+	// 	a.title = file;
+	// 	a.href = 'javascript:loadPdf("'+file+'")';
+	// 	fileEx.appendChild(a);
+	// }
+}
+
+// loadPdf('36q.pdf');
+var toggled = null;
+
+
+//TODO: Can probably combine these functions
+function toggleNav() {
+	if(document.getElementById("nav").style.height != '50px') {
+		document.getElementById("nav").style.height = '50px';
+	}else if(!toggled) {
+		document.getElementById("nav").style.height = '0px';
 	}
 }
-// loadPdf('36q.pdf');
-setupMenu();
-setupNav();
+function toggleMenu() {
+	if(!toggled){
+		toggled = 'Menu';
+		document.getElementById("menu").childNodes[1].style.width = '250px';
+	}else if(toggled == 'Menu'){
+		toggled = null;
+		document.getElementById("menu").childNodes[1].style.width = '0px';
+	}
+}
+function toggleFiles() {
+	if(!toggled){
+		toggled = 'Files';
+		document.getElementById("files").childNodes[1].hidden = false;
+	}else if(toggled == 'Files') {
+		toggled = null;
+		document.getElementById("files").childNodes[1].hidden = true;
+	}
+}
+function togglePlaylists() {
+	if(!toggled){
+		toggled = 'Playlists';
+		document.getElementById("playlists").childNodes[1].hidden = false;
+	}else if(toggled == 'Playlists') {
+		toggled = null;
+		document.getElementById("playlists").childNodes[1].hidden = true;
+	}
+}
 
 function setupNav(){
 	navEnabled = true;
@@ -287,14 +401,8 @@ function setupNav(){
 			return;
 		}
 	}
-
 	var touchMe = document.getElementById('app');
-	var imLeft = document.getElementById('prev');
-	var imRight = document.getElementById('next');
-
 	touch = new Hammer(touchMe);
-	touchL = new Hammer(imLeft);
-	touchR = new Hammer(imRight);
 
 	touch.on("swipeleft swiperight tap press", function(ev) {
 		if(ev.pointerType=='pen'){
@@ -304,33 +412,42 @@ function setupNav(){
 				nextPage();
 			}else if(ev.type == 'swiperight'){
 				prevPage();
+			}else if(ev.type == 'tap'){
+				switch(ev.target){
+					case document.getElementById('prev'):
+						prevPage();
+						break;
+					case document.getElementById('next'):
+						nextPage();
+						break;
+					default:
+						if(ev.target.classList.contains('toggleMenu')){
+							toggleMenu();
+						}else if(ev.target.classList.contains('toggleFiles')){
+							toggleFiles();
+						}else if(ev.target.classList.contains('togglePlaylists')){
+							togglePlaylists();
+						}else{
+							toggleNav();
+							if(toggled){ //TODO: fix this
+								log('contained? - ',parentContains(document.getElementsByClassName('toggle'+toggled)[0],ev.target));
+								if(!parentContains(document.getElementsByClassName('toggle'+toggled)[0],ev.target)){
+									window["toggle"+toggled]();
+								}
+							}
+						}
+				}
 			}else if(ev.type == 'press'){
-				fileEx.hidden = false;
+				log('openEditor');
 			}
-		}
-		// log(ev.target);
-	});
-	touchL.on("tap", function(ev) {
-		if(ev.pointerType=='pen'){
-			log('openEditor');
-		}else{
-			prevPage();
 		}
 		log(ev.target);
 	});
-	touchR.on("tap", function(ev) {
-		if(ev.pointerType=='pen'){
-			log('openEditor');
-		}else{
-			nextPage();
-		}
-		// log(ev.target);
-	});
 	// touch.set({enable: false});
-	toggleNav(false);
+	// toggleNav(false);
 }
 
-function toggleNav(enabled = !navEnabled){
+function toggleTouch(enabled = !navEnabled){
 	touch.set({enable: enabled});
 	touchL.set({enable: enabled});
 	touchR.set({enable: enabled});
@@ -340,15 +457,19 @@ function toggleNav(enabled = !navEnabled){
  * Asynchronously downloads PDF.
  */
 function loadPdf(pdf){
-	toggleNav(true);
-	log('Loading files/'+ pdf);
+	// toggleTouch(true);
+	log('Loading: '+ pdf);
+	if(toggled){
+		window["toggle"+toggled]();
+	}
 	for (var i = 0; i < canvasArr.length; i++) {
 		context[i].clearRect(0, 0, canvasArr[i].width, canvasArr[i].height);
 	}
 	// If absolute URL from the remote server is provided, configure the CORS
 	// header on that server.
 	// var url = '//cdn.mozilla.net/pdfjs/tracemonkey.pdf';
-	var data = new Uint8Array(fs.readFileSync('files/'+pdf));
+
+	var data = new Uint8Array(fs.readFileSync(pdf));
 
 	PDFJS.getDocument(data).then(function(pdfDoc_) {
 		pdfDoc = pdfDoc_;
@@ -364,6 +485,6 @@ function loadPdf(pdf){
 			renderPage(1 + i);
 		}
 	});
-	fileEx.hidden = true;
+	// fileEx.hidden = true;
 }
 

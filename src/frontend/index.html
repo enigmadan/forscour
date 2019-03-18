@@ -9,12 +9,65 @@
 	</head>
 	<body>
 		<script src="../pdfjs/pdf.min.js"></script>
+	    <input type="file" name="files[]" id="file" data-multiple-caption="{count} files selected" multiple hidden accept="application/pdf" />
 		<div id="app">
 			<div id="explorer"></div>
 			<div id="prev"></div>
 			<div id="next"></div>
-			<div id="menu">
+			<div id="nav">
+				<div>
+					<div id="menu" class="menu float-left toggleMenu">
+						<div>
+							<span class="menu closebtn toggleMenu"></span>
+							<ul>
+								<li><h3>Menu</h3></li>
+								<li>
+									<input type="text" class="search" name="menu">
+								</li>
+								<li>
+									About
+								</li>
+								<li>
+									Instructions
+								</li>
+								<li>
+									<a onclick="addPdf()">Add PDF</a>
+								</li>
+							</ul>
+						</div>
+					</div>
+					<div id="files" class="float-left toggleFiles">
+						<div hidden>
+							<span class="closebtn toggleFiles">X</span>
+							<ul>
+								<li><h3>Files</h3></li>
+							</ul>
+							<div>
+								<ul><li><input id="file_search" class="search" placeholder="Search" /><button class="sort" data-sort="name">Sort by name</button></li></ul>
+								<ul id="files_list"></ul>
+							</div>
+						</div>
+					</div>
+					<div id="playlists" class="float-left togglePlaylists">
+						<div hidden>
+							<span class="closebtn toggleFiles">X</span>
+							<ul>
+								<li><h3>Playlists</h3></li>
+							</ul>
+							<div>
+								<ul><li><input id="playlist_search" class="search" placeholder="Search" /><button class="sort" data-sort="name">Sort by name</button></li></ul>
+								<ul id="files_list"></ul>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div>
 				<span>Page: <span id="page_num"></span> / <span id="page_count"></span></span>
+				</div>
+				<div>
+					<div id="edit" class="float-right">
+					</div>
+				</div>
 			</div>
 			<div id="canvases">
 				<div id="canvas-wrap-1">
